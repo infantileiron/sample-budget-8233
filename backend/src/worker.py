@@ -2,8 +2,11 @@ import time,logging
 from pathlib import Path
 from .config.database import Session
 from .utils.queue import client,QUEUE
-from .services.run_service import compute
+from .services.run_service import compute,recover_pending
 heartbeat=Path("/artifacts/worker-heartbeat")
+with Session() as db:
+ try:recover_pending(db)
+ except Exception:logging.exception("Recover pending runs failed")
 while True:
  try:
   heartbeat.touch()

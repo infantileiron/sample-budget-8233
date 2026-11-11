@@ -1,3 +1,5 @@
 -- New MySQL database baseline: SQLAlchemy metadata creates lots, plans, runs, draws, reviews, reports, users, audits.
 -- JSON columns retain selected batch IDs, feasible/infeasible allocation evidence and immutable sampled-document manifests.
+-- runs.plan_snapshot / runs.lot_snapshots freeze the plan and ledger at run creation, so later lot/plan edits
+-- cannot split quotas and manifests across two datasets; initialize() idempotently backfills these columns on existing databases.
 -- Existing deployments require a reviewed schema migration; destructive automatic upgrades are not provided.

@@ -4,8 +4,7 @@ from sqlalchemy import select
 from fastapi import HTTPException
 from ..models.draw import SampleDraw
 from ..models.run import AllocationRun
-from ..models.plan import SamplingPlan
-from ..models.lot import ArchiveLot
+from ..utils.locks import lock_for
 
 def manifest(lots,strata,seed):
  rng=random.Random(seed);rows=[]
@@ -17,15 +16,30 @@ def manifest(lots,strata,seed):
   rows.extend(rng.sample(population,layer["quota"]))
  return [dict(row,position=i+1) for i,row in enumerate(rows)]
 
-def generate(db,run):
- existing=db.scalar(select(SampleDraw).where(SampleDraw.run_id==run.id))
+def _persist(db,run,result):
+ plan=run.plan_snapshot
+ rows=manifest(run.lot_snapshots,result["strata"],plan["seed"])
+ draw=SampleDraw(id=str(uuid4()),run_id=run.id,seed=plan["seed"],manifest=rows)
+ db.add(draw)
+ return draw
+
+def generate(db,run,result=None):
+ """同一运行只保留一份清单；并发请求在运行行锁上串行后返回原清单。"""
+ locked=db.get(AllocationRun,run.id,with_for_update=True)
+ if locked is None:raise HTTPException(404,"运行不存在")
+ existing=db.scalar(select(SampleDraw).where(SampleDraw.run_id==locked.id))
  if existing:return existing
- if run.status!="completed" or not run.result.get("feasible"):raise HTTPException(409,"仅预算可行且已完成的运行可生成抽样")
- plan=db.get(SamplingPlan,run.plan_id);lots=[db.get(ArchiveLot,i) for i in plan.lot_ids]
- records=[{"id":l.id,"name":l.name,"size":l.size,"stratum":l.stratum,"doc_prefix":l.doc_prefix} for l in lots]
- row=SampleDraw(id=str(uuid4()),run_id=run.id,seed=plan.seed,manifest=manifest(records,run.result["strata"],plan.seed));db.add(row);db.commit();return row
+ if locked.status!="completed" or not locked.result.get("feasible"):
+  # 工作流在同一事务内调用时直接落清单；外部直接调用保持409语义
+  if result is None:raise HTTPException(409,"仅预算可行且已完成的运行可生成抽样")
+  return _persist(db,locked,result)
+ return _persist(db,locked,locked.result)
 
 def create(db,body):
  run=db.get(AllocationRun,body.run_id)
  if not run:raise HTTPException(404,"运行不存在")
- return generate(db,run)
+ # 与后台计算共用同一把运行锁，保证并发处理同次运行只保留一份清单
+ with lock_for(run.id):
+  draw=generate(db,run)
+  db.commit()
+ return draw

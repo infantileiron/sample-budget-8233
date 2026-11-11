@@ -8,3 +8,6 @@ class AllocationRun(RecordMixin,Base):
  status:Mapped[str]=mapped_column(String(20),default="queued")
  result:Mapped[dict]=mapped_column(JSON,default=dict)
  error:Mapped[str]=mapped_column(Text,default="")
+ # 发起运行时冻结的底册与计划快照；之后批次/计划修正不影响本次运行
+ plan_snapshot:Mapped[dict]=mapped_column(JSON,default=dict)
+ lot_snapshots:Mapped[list]=mapped_column(JSON,default=list)

@@ -3,7 +3,7 @@ from sqlalchemy import select,func
 from src.config.database import initialize,Session
 from src.models import ArchiveLot,SamplingPlan,AllocationRun,SampleDraw,ReviewDecision,Report,User
 from src.utils.security import hash_password
-from src.services.run_service import compute
+from src.services.run_service import compute,_snapshot_plan,_snapshot_lot
 
 def seed():
  initialize()
@@ -19,7 +19,9 @@ def seed():
   db.commit()
   if not db.get(SamplingPlan,"demo-plan"):db.add(SamplingPlan(id="demo-plan",name="十一月档案四层复核",lot_ids=ids,target_detection=.95,budget=480,seed=20261112))
   db.commit()
-  if not db.get(AllocationRun,"demo-run"):db.add(AllocationRun(id="demo-run",plan_id="demo-plan",status="queued",result={},error=""));db.commit();compute(db,"demo-run")
+  if not db.get(AllocationRun,"demo-run"):
+   demo_plan=db.get(SamplingPlan,"demo-plan");demo_lots=[db.get(ArchiveLot,i) for i in ids]
+   db.add(AllocationRun(id="demo-run",plan_id="demo-plan",status="queued",result={},error="",plan_snapshot=_snapshot_plan(demo_plan),lot_snapshots=[_snapshot_lot(lot) for lot in demo_lots]));db.commit();compute(db,"demo-run")
   draw=db.scalar(select(SampleDraw).where(SampleDraw.run_id=="demo-run"))
   if draw and not db.get(ReviewDecision,"demo-review"):db.add(ReviewDecision(id="demo-review",draw_id=draw.id,action="核对四层抽样口径与预算，按不可变文档编号复核；检出率依赖预估差错数假设，不代表质量保证。",state="approved",reviewer="admin@sample.demo"))
   db.commit()
