@@ -1,0 +1,1 @@
+export const roles=["admin","analyst","viewer"] as const;export const runStatuses=["queued","running","completed","infeasible","failed"] as const;export const strata=["low","moderate","high","critical"] as const;export const strataLabels:Record<string,string>={low:"常规",moderate:"关注",high:"高风险",critical:"重点"};

@@ -1,0 +1,3 @@
+-- New MySQL database baseline: SQLAlchemy metadata creates lots, plans, runs, draws, reviews, reports, users, audits.
+-- JSON columns retain selected batch IDs, feasible/infeasible allocation evidence and immutable sampled-document manifests.
+-- Existing deployments require a reviewed schema migration; destructive automatic upgrades are not provided.
